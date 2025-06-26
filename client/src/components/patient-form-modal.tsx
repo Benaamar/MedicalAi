@@ -11,7 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useNotificationActions } from "@/hooks/use-notification-actions";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPatientSchema } from "@shared/schema";
+import { frontendPatientSchema } from "@shared/schema";
 import type { InsertPatient, Patient } from "@shared/schema";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ interface PatientFormModalProps {
   mode: "create" | "edit";
 }
 
-const formSchema = insertPatientSchema.extend({
+const formSchema = frontendPatientSchema.extend({
   firstName: z.string().min(1, "Prénom requis"),
   lastName: z.string().min(1, "Nom requis"),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
@@ -53,7 +53,7 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: InsertPatient) => {
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
       const response = await apiRequest("POST", "/api/patients", data);
       return response.json();
     },
@@ -61,7 +61,7 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
       const patientName = `${variables.firstName} ${variables.lastName}`;
       toast({
         title: "Patient créé",
-        description: "Le patient a été créé avec succès.",
+        description: `Le patient ${patientName} a été créé avec succès.`,
       });
       notifyPatientCreated(patientName);
       queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
@@ -78,7 +78,7 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: InsertPatient) => {
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
       const response = await apiRequest("PATCH", `/api/patients/${patient?.id}`, data);
       return response.json();
     },
@@ -136,8 +136,8 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
           </DialogHeader>
         </div>
 
-        <div className="overflow-y-auto max-h-[60vh] px-1">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+          <div className="overflow-y-auto max-h-[60vh] px-1 flex-1">
             {/* Section Identité */}
             <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
               <div className="flex items-center mb-4">
@@ -202,19 +202,7 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
                     </p>
                   )}
                 </div>
-              </div>
-            </div>
 
-            {/* Section Contact */}
-            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-              <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                  <Phone className="h-4 w-4 text-blue-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900">Informations de contact</h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="phone" className="text-slate-700 font-medium flex items-center">
                     <Phone className="h-4 w-4 mr-2 text-blue-600" />
@@ -222,10 +210,9 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
                   </Label>
                   <Input
                     id="phone"
-                    type="tel"
                     {...form.register("phone")}
                     className="mt-1 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="06 12 34 56 78"
+                    placeholder="Numéro de téléphone"
                   />
                   {form.formState.errors.phone && (
                     <p className="text-sm text-red-500 mt-1 flex items-center">
@@ -237,15 +224,15 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
 
                 <div>
                   <Label htmlFor="email" className="text-slate-700 font-medium flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-blue-600" />
+                    <Mail className="h-4 w-4 mr-2 text-purple-600" />
                     Email
                   </Label>
                   <Input
                     id="email"
                     type="email"
                     {...form.register("email")}
-                    className="mt-1 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="email@exemple.com"
+                    className="mt-1 rounded-xl border-slate-200 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Adresse email"
                   />
                   {form.formState.errors.email && (
                     <p className="text-sm text-red-500 mt-1 flex items-center">
@@ -270,41 +257,42 @@ export default function PatientFormModal({ isOpen, onClose, patient, mode }: Pat
                 />
               </div>
             </div>
-          </form>
-        </div>
+          </div>
 
-        {/* Footer avec boutons */}
-        <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            className="rounded-xl border-slate-200 hover:bg-slate-50"
-            disabled={isLoading}
-          >
-            Annuler
-          </Button>
-          <Button 
-            onClick={form.handleSubmit(onSubmit)}
-            disabled={isLoading}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                {mode === "create" ? "Création..." : "Modification..."}
-              </>
-            ) : (
-              <>
-                {mode === "create" ? (
-                  <UserPlus className="h-4 w-4 mr-2" />
-                ) : (
-                  <User className="h-4 w-4 mr-2" />
-                )}
-                {mode === "create" ? "Créer le patient" : "Modifier le patient"}
-              </>
-            )}
-          </Button>
-        </div>
+          {/* Footer avec boutons */}
+          <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200 mt-6">
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={onClose}
+              className="rounded-xl border-slate-200 hover:bg-slate-50"
+              disabled={isLoading}
+            >
+              Annuler
+            </Button>
+            <Button 
+              type="submit"
+              disabled={isLoading}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {mode === "create" ? "Création..." : "Modification..."}
+                </>
+              ) : (
+                <>
+                  {mode === "create" ? (
+                    <UserPlus className="h-4 w-4 mr-2" />
+                  ) : (
+                    <User className="h-4 w-4 mr-2" />
+                  )}
+                  {mode === "create" ? "Créer le patient" : "Modifier le patient"}
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

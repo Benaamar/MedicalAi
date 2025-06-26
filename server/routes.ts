@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateMedicalSummary, processAiChatMessage, processGeneralChatMessage } from "./services/anthropic";
 import { transcribeAudio } from "./services/openai";
-import { insertPatientSchema, insertConsultationSchema, insertAiSummarySchema, insertUserSchema } from "@shared/schema";
+import { insertPatientSchema, insertConsultationSchema, insertAiSummarySchema, insertUserSchema, frontendPatientSchema } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 import bcrypt from "bcryptjs";
@@ -89,10 +89,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/patients", async (req, res) => {
+  app.post("/api/patients", authMiddleware, async (req: any, res) => {
     try {
-      const patientData = insertPatientSchema.parse(req.body);
-      const patient = await storage.createPatient(patientData);
+      const patientData = frontendPatientSchema.parse(req.body);
+      // Ajouter automatiquement le doctorId de l'utilisateur connecté
+      const patientWithDoctor = {
+        ...patientData,
+        doctorId: req.user.id
+      };
+      const patient = await storage.createPatient(patientWithDoctor);
       res.status(201).json(patient);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -102,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/patients/:id", async (req, res) => {
+  app.patch("/api/patients/:id", authMiddleware, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -116,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/patients/:id", async (req, res) => {
+  app.delete("/api/patients/:id", authMiddleware, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deletePatient(id);
@@ -130,22 +135,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Consultations routes
-  app.get("/api/consultations/today", async (req, res) => {
+  app.get("/api/consultations", authMiddleware, async (req: any, res) => {
+    try {
+      const consultations = await storage.getConsultationsByDoctor(req.user.id);
+      res.json(consultations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch consultations" });
+    }
+  });
+
+  app.get("/api/consultations/today", authMiddleware, async (req: any, res) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const consultations = await storage.getConsultationsByDate(today);
-      res.json(consultations);
+      // Filtrer pour le docteur connecté seulement
+      const doctorConsultations = consultations.filter(c => c.doctorId === req.user.id);
+      res.json(doctorConsultations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch today's consultations" });
     }
   });
 
-  app.get("/api/consultations/:id", async (req, res) => {
+  app.get("/api/consultations/:id", authMiddleware, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const consultation = await storage.getConsultation(id);
       if (!consultation) {
         return res.status(404).json({ message: "Consultation not found" });
+      }
+      // Vérifier que la consultation appartient au docteur connecté
+      if (consultation.doctorId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
       }
       res.json(consultation);
     } catch (error) {
@@ -170,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/consultations/:id", async (req, res) => {
+  app.patch("/api/consultations/:id", authMiddleware, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -184,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/consultations/:id", async (req, res) => {
+  app.delete("/api/consultations/:id", authMiddleware, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteConsultation(id);

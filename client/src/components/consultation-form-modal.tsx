@@ -46,11 +46,7 @@ export default function ConsultationFormModal({ isOpen, onClose, consultation, m
       
       setIsLoading(true);
       try {
-        const response = await fetch("/api/patients");
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status}`);
-        }
-        
+        const response = await apiRequest("GET", "/api/patients");
         const data = await response.json();
         console.log("Patients chargés:", data);
         setPatients(Array.isArray(data) ? data : []);

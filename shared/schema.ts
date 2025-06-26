@@ -12,6 +12,7 @@ export const users = pgTable("users", {
 
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   birthDate: text("birth_date").notNull(),
@@ -54,6 +55,13 @@ export const insertPatientSchema = createInsertSchema(patients).omit({
   id: true,
   createdAt: true,
 });
+
+// Schéma pour le frontend (sans doctorId)
+export const frontendPatientSchema = insertPatientSchema.omit({
+  doctorId: true,
+});
+
+export type FrontendPatient = z.infer<typeof frontendPatientSchema>;
 
 export const insertConsultationSchema = createInsertSchema(consultations).omit({
   id: true,

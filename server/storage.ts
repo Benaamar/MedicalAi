@@ -110,20 +110,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPatientsByDoctor(doctorId: number): Promise<Patient[]> {
-    // Récupérer les patients qui ont eu au moins une consultation avec ce docteur
-    const patientIds = await db
-      .selectDistinct({ patientId: consultations.patientId })
-      .from(consultations)
-      .where(eq(consultations.doctorId, doctorId));
-    
-    if (patientIds.length === 0) {
-      return [];
-    }
-    
-    return await db
+    console.log("getPatientsByDoctor - Searching for doctorId:", doctorId);
+    const result = await db
       .select()
       .from(patients)
-      .where(inArray(patients.id, patientIds.map(p => p.patientId)));
+      .where(eq(patients.doctorId, doctorId))
+      .orderBy(patients.createdAt);
+    console.log("getPatientsByDoctor - Found patients:", result.length, result);
+    return result;
   }
 
   async createPatient(insertPatient: InsertPatient): Promise<Patient> {

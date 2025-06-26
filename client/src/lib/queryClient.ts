@@ -74,7 +74,8 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 0,
+      cacheTime: 0,
       retry: false,
       onError: (error) => {
         console.error("Erreur de requête:", error);
